@@ -10,11 +10,11 @@ world = World()
 
 
 # You may uncomment the smaller graphs for development and testing purposes.
-# map_file = "maps/test_line.txt"
+map_file = "maps/test_line.txt"
 # map_file = "maps/test_cross.txt"
 # map_file = "maps/test_loop.txt"
 # map_file = "maps/test_loop_fork.txt"
-map_file = "maps/main_maze.txt"
+# map_file = "maps/main_maze.txt"
 
 # Loads the map into a dictionary
 room_graph=literal_eval(open(map_file, "r").read())
@@ -50,114 +50,165 @@ class Graph:
 
     """Represent a graph as a dictionary of vertices mapping labels to edges."""
     def __init__(self):
-        self.adjacency_list = {}
+        self.adjacency_list = {0:{'n': '?', 's': '?', 'w': '?', 'e': '?'}}
 
     
     def select_random_exit(self, exits):
-
-        index = random.randint(0, len(exits)-1)
+    
+        if '?' in exits.values():
         
-        direction = list(exits)[index]
-        
-        if exits.get(direction) == '?':
+            for k,v in exits.items():
 
-            return direction
+                if v == '?':
+
+                    return k
 
         else:
 
-            self.select_random_exit(exits)
+            return None
+
+
+
+    def get_opposite_direction(self, direction):
+
+        if direction == 'n':
+
+            return 's'
+
+        elif direction == 's':
+
+            return 'n'
+        
+        elif direction == 'e':
+
+            return 'w'
+
+        elif direction == 'w':
+
+            return 'e'
+
+    def convert_exit_list_to_dict(self, list):
+
+        exit_dict = {}
+        
+        for exit in list:
+
+            exit_dict[exit] = '?'
+
+        return exit_dict
 
 
     def dft(self, player, starting_room):
         
+        current_room_obj = None
         
         # Create an empty stach and add the starting_room
         stack = Stack()
+        
         stack.push({
-            'current_room': 0,
-            'exits': {'n': '?', 's': '?', 'w': '?', 'e': '?'},
-            'last_direction': None
+            'current_room': player.current_room, 
+            'direction': None
         })
 
+
+        print("Initial Current Room ID: ", player.current_room.id)
+        print("Adjacency List Before While: ", self.adjacency_list)
+        print("Stack Size: ", stack.size())
+        print("\n##### LOADED ROOM 0 #####\n")
+
+        Current_Room_Match = True
+
         # while the stack is not empty:
-        while stack.size() > 0:
-            # get current vertex PATH (pop from stack)
-            current_obj = stack.pop()
-            current_room = current_obj['current_room']
-            current_exits = current_obj['exits']
-            last_direction = current_obj['last_direction']
+        while stack.size() > 0 and Current_Room_Match:
 
-            # IF UNexplored path exists in current_exits:
-            if current_room not in self.adjacency_list:
+            # current_room_obj = stack.pop()
+            current_room_obj = stack.stack[-1]
 
-                self.adjacency_list[current_room] = current_exits
+            current_room = current_room_obj["current_room"]
 
+            print("###TOP###\nCurrent Room form line 128: ", current_room.id)
+
+            print("Stack Size Beginning of While: ", stack.size())
+
+            
+            # Check Current Room Object = Player.Current_Room.id 
+            if player.current_room.id is not current_room.id:
+
+                Current_Room_Match = False
+
+                print("Player.Current_Room.id Not Matching With Current_Room_Obj")
+
+
+            # Check if Curr_Room is in Adjacency List
+            if current_room_obj['current_room'].id not in self.adjacency_list:
+
+                self.adjacency_list[current_room_obj['current_room'].id] = self.convert_exit_list_to_dict(current_room_obj.get_exits())
+
+
+            # Get all adjacent rooms of the popped room
+
+
+            # Select Random Exit from Current Room Exit Dict
+            selected_exit = self.select_random_exit(self.adjacency_list[current_room_obj['current_room'].id])
+
+            print("Selected Exit: ", selected_exit)
+
+            if selected_exit is not None:
+
+                # Get next room
+                next_room = player.current_room.get_room_in_direction(selected_exit)
+
+                # Check if Next Room is in Adjacency List
+                if next_room.id not in self.adjacency_list:
+                    # Load next room exits to adjacency list
+                    self.adjacency_list[next_room.id] = self.convert_exit_list_to_dict(next_room.get_exits())
+                    print("Added Next Room to Adjacency List: ", self.adjacency_list[next_room.id])
+
+                # Pair Current Room Exit with Next Room Entrance
+                self.adjacency_list[current_room_obj['current_room'].id][selected_exit] = next_room.id
+                print("Paired Current Exit with Next Entrance: ", self.adjacency_list[current_room_obj['current_room'].id])
+
+                # Pair Next Room Entrance with Current Room Exit
+                self.adjacency_list[next_room.id][self.get_opposite_direction(selected_exit)] = current_room_obj['current_room'].id
+                print("Paired Next Entrance with Current Exit: ", self.adjacency_list[next_room.id])
+
+                ## Add Next Room to Stack
+                stack.push({
+                    'current_room': next_room,
+                    'direction': selected_exit
+                })
+
+                print("Pushed Next Room to Stack: ", next_room.id)
+
+                ## Add Direction to Traversal Path
+                traversal_path.append(selected_exit)
+
+                ## Set New Current Room
+                player.travel(selected_exit)
+
+                print("Stack size after Push to Stack: ", stack.size())
+
+            # if selected exit is None
             else:
                 
-                exits = self.adjacency_list[current_room]
+                popped_room_obj = stack.pop()
 
-                print("in: ", exits)            
-                # next_direction = next((room_id for room_id, exits in mydict.items() if age == search_age), None)
-                
-                # # Randomly select an unexplored exit recursively
-                # # Returns 'string' (ie. 'n')
-                # selected_exit = self.select_random_exit(current_exits)
+                # Add WalkOut to Traversal Path
+                traversal_path.append(self.get_opposite_direction(popped_room_obj["direction"]))
 
-                # # If exit has NOT been explored,
-                # # travel through and get Room Info for Stack Load
-                # if current_exits.get(selected_exit) == '?':
+                player.travel(self.get_opposite_direction(popped_room_obj["direction"]))
 
-                #     # Travel through the exit
-                #     player.travel(selected_exit)
+                # push current room back on stack
+                ## Add Next Room to Stack
+                # stack.push({
+                #     'current_room': current_room.get_room_in_direction(self.get_opposite_direction(popped_room_obj["direction"]),
+                #     'direction': self.get_opposite_direction(popped_room_obj["direction"])
+                # })
 
-                #     # Get the Next Room ID
-                #     next_room_id = player.current_room.id
+                print("Popped Direction: ", self.get_opposite_direction(popped_room_obj["direction"]))
 
-                #     # Get Next Room Exits List
-                #     next_room_exits_list = player.current_room.get_exits()
 
-                #     # Set empty dict to hold next_room_exits
-                #     next_room_exits_dict = {}
-
-                #     # Convert Next Room Exits List to Dictionary
-                #     for direction in next_room_exits_list:
-                #         next_room_exits_dict[direction] = '?'
-                    
-                #     # # Add Next Room to Stack
-                #     # stack.push({
-                #     #     'current_room': next_room_id,
-                #     #     'exits': next_room_exits_dict,
-                #     #     'last_direction': selected_exit   
-                #     # })
-
-                #     print(stack.size())
-          
-
-            # Line 93 - IF    
-            # IF UNexplored path DOES NOT exist in current_exits:
-            # Need to walk back and try another exit
-            # else: 
-
-            #     if last_direction == 'n':
-
-            #         walk_back_direction = 's'
-
-            #     elif last_direction == 's':
-
-            #         walk_back_direction = 'n'
-                
-            #     elif last_direction == 'e':
-
-            #         walk_back_direction = 'w'
-
-            #     elif last_direction == 'w':
-
-            #         walk_back_direction = 'e'
-
-        
-                # player.travel(walk_back_direction)
-
-        print("looping")
+        print("Final Traversal Path: ", traversal_path)
 
 
 ## END ######## MY CODE
