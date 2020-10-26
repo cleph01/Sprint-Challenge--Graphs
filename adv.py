@@ -10,8 +10,8 @@ world = World()
 
 
 # You may uncomment the smaller graphs for development and testing purposes.
-map_file = "maps/test_line.txt"
-# map_file = "maps/test_cross.txt"
+# map_file = "maps/test_line.txt"
+map_file = "maps/test_cross.txt"
 # map_file = "maps/test_loop.txt"
 # map_file = "maps/test_loop_fork.txt"
 # map_file = "maps/main_maze.txt"
@@ -21,12 +21,12 @@ room_graph=literal_eval(open(map_file, "r").read())
 world.load_graph(room_graph)
 
 # Print an ASCII map
-# world.print_rooms()
+world.print_rooms()
 
 player = Player(world.starting_room)
 
 # Fill this out with directions to walk
-# traversal_path = ['n', 'n']
+
 traversal_path = []
 
 
@@ -50,7 +50,7 @@ class Graph:
 
     """Represent a graph as a dictionary of vertices mapping labels to edges."""
     def __init__(self):
-        self.adjacency_list = {0:{'n': '?', 's': '?', 'w': '?', 'e': '?'}}
+        self.adjacency_list = {}
 
     
     def select_random_exit(self, exits):
@@ -63,11 +63,11 @@ class Graph:
 
                     return k
 
-        else:
+                else:
 
-            return None
+                    return None
 
-
+            
 
     def get_opposite_direction(self, direction):
 
@@ -100,15 +100,12 @@ class Graph:
 
     def dft(self, player, starting_room):
         
-        current_room_obj = None
+        counter = 0
         
         # Create an empty stach and add the starting_room
         stack = Stack()
         
-        stack.push({
-            'current_room': player.current_room, 
-            'direction': None
-        })
+        stack.push([player.current_room])
 
 
         print("Initial Current Room ID: ", player.current_room.id)
@@ -116,98 +113,191 @@ class Graph:
         print("Stack Size: ", stack.size())
         print("\n##### LOADED ROOM 0 #####\n")
 
-        Current_Room_Match = True
-
         # while the stack is not empty:
-        while stack.size() > 0 and Current_Room_Match:
+        while stack.size() > 0:
 
-            # current_room_obj = stack.pop()
-            current_room_obj = stack.stack[-1]
+            counter += 1
 
-            current_room = current_room_obj["current_room"]
+            print("Counter: ", counter)
 
-            print("###TOP###\nCurrent Room form line 128: ", current_room.id)
+            current_path = stack.pop()
+
+            current_room_obj = current_path[-1]
+
+            current_room_id = current_room_obj.id
+            
+
+            print("\n###TOP###\n\nCurrent Room form line 121: ", current_room_id)
 
             print("Stack Size Beginning of While: ", stack.size())
 
             
-            # Check Current Room Object = Player.Current_Room.id 
-            if player.current_room.id is not current_room.id:
+            # if the vertex has not been visited
+            if current_room_id not in self.adjacency_list:
 
-                Current_Room_Match = False
+                print("Current Room Not in Adj List: ", current_room_id)
 
-                print("Player.Current_Room.id Not Matching With Current_Room_Obj")
+                print("Adjacency List: ", self.adjacency_list)
 
+                # Get current_room_exits
+                current_room_exits_list = current_room_obj.get_exits()
 
-            # Check if Curr_Room is in Adjacency List
-            if current_room_obj['current_room'].id not in self.adjacency_list:
+                print("Current Room Exits List: ", current_room_exits_list)
 
-                self.adjacency_list[current_room_obj['current_room'].id] = self.convert_exit_list_to_dict(current_room_obj.get_exits())
+                # Add the room_id and converted exits list-to-dictionary to the adjacency_list
+                self.adjacency_list[current_room_id] = self.convert_exit_list_to_dict(current_room_exits_list)
 
+                # Select random exit from New adjacency_list entry
+                selected_exit = self.select_random_exit(self.adjacency_list[current_room_id])
 
-            # Get all adjacent rooms of the popped room
+                next_room = current_room_obj.get_room_in_direction(selected_exit)
 
+                # Print Selected Exit
+                print("Selected Exit: ", selected_exit)
 
-            # Select Random Exit from Current Room Exit Dict
-            selected_exit = self.select_random_exit(self.adjacency_list[current_room_obj['current_room'].id])
+                # Print Next Room
+                print("Next Room: ", next_room)
 
-            print("Selected Exit: ", selected_exit)
+                # Assign Next Room to Adjacency List for Current Room Id
+                self.adjacency_list[current_room_id][selected_exit] = next_room.id
 
-            if selected_exit is not None:
+        # Add Next Room Exits to Adjacency List
+                 
+                # Get Next Room Exits List
+                next_room_exits_list = next_room.get_exits()
 
-                # Get next room
-                next_room = player.current_room.get_room_in_direction(selected_exit)
+                print("Next Room Exits List: ", next_room_exits_list)
 
-                # Check if Next Room is in Adjacency List
-                if next_room.id not in self.adjacency_list:
-                    # Load next room exits to adjacency list
-                    self.adjacency_list[next_room.id] = self.convert_exit_list_to_dict(next_room.get_exits())
-                    print("Added Next Room to Adjacency List: ", self.adjacency_list[next_room.id])
+                # Add the room_id and converted exits list-to-dictionary to the adjacency_list
+                self.adjacency_list[next_room.id] = self.convert_exit_list_to_dict(next_room_exits_list)
 
-                # Pair Current Room Exit with Next Room Entrance
-                self.adjacency_list[current_room_obj['current_room'].id][selected_exit] = next_room.id
-                print("Paired Current Exit with Next Entrance: ", self.adjacency_list[current_room_obj['current_room'].id])
+                # Update next_room adjacency_list to point to current Room
+                # for opposite direction
+                self.adjacency_list[next_room.id][self.get_opposite_direction(selected_exit)] = current_room_id
 
-                # Pair Next Room Entrance with Current Room Exit
-                self.adjacency_list[next_room.id][self.get_opposite_direction(selected_exit)] = current_room_obj['current_room'].id
-                print("Paired Next Entrance with Current Exit: ", self.adjacency_list[next_room.id])
+                print("Adjacency List with Next Room: ", self.adjacency_list)
 
-                ## Add Next Room to Stack
-                stack.push({
-                    'current_room': next_room,
-                    'direction': selected_exit
-                })
+                # copy the current path
+                new_path = list(current_path)
+                
+                # add the next_room to it
+                new_path.append(next_room)
+                
+                # Push New Path to Stack
+                stack.push(new_path)
 
-                print("Pushed Next Room to Stack: ", next_room.id)
+                print("New Path: ", new_path)
 
-                ## Add Direction to Traversal Path
-                traversal_path.append(selected_exit)
-
-                ## Set New Current Room
+                # Travel to Next Room
                 player.travel(selected_exit)
 
-                print("Stack size after Push to Stack: ", stack.size())
+                # Append direction to traversal_path array
+                traversal_path.append(selected_exit)
 
-            # if selected exit is None
+                print("Loop Traversal Path: ", traversal_path)
+
+            # Current Room is in adjacency list    
             else:
-                
-                popped_room_obj = stack.pop()
 
-                # Add WalkOut to Traversal Path
-                traversal_path.append(self.get_opposite_direction(popped_room_obj["direction"]))
+                print("Current Room IS in Adj List: ", current_room_id)
 
-                player.travel(self.get_opposite_direction(popped_room_obj["direction"]))
+                print("Adjacency List: ", self.adjacency_list)
 
-                # push current room back on stack
-                ## Add Next Room to Stack
-                # stack.push({
-                #     'current_room': current_room.get_room_in_direction(self.get_opposite_direction(popped_room_obj["direction"]),
-                #     'direction': self.get_opposite_direction(popped_room_obj["direction"])
-                # })
+                # Select random exit from adjacency_list
+                selected_exit = self.select_random_exit(self.adjacency_list[current_room_id])
 
-                print("Popped Direction: ", self.get_opposite_direction(popped_room_obj["direction"]))
+                print("Selected Exit: ", selected_exit)
+
+                # Check if available exit exists
+                if selected_exit is not None:
+
+                    available_exit = True
+
+                else:
+
+                    available_exit = False
+
+                print("Available Exit: ", available_exit)
+
+                # If Available_Exit is True --> Go
+                if available_exit == True:
+    
+                    print("Current Room Obj: ", current_room_obj)
+                    print("Selected Exit: ", selected_exit )
+
+                    print("Current Room Exits List: ", current_room_obj.get_exits())
+
+                    next_room = current_room_obj.get_room_in_direction(selected_exit)
+
+                    print("Next Room: ", next_room)
+
+                    next_room_exits_list = next_room.get_exits()
+
+                    print("Next Room Exits List: ", next_room_exits_list)
+
+                    # Assign Next Room to Adjacency List for Current Room Id
+                    self.adjacency_list[current_room_id][selected_exit] = next_room.id
+
+    # Add the room_id and converted exits list-to-dictionary to the adjacency_list
+                    self.adjacency_list[next_room.id] = self.convert_exit_list_to_dict(next_room_exits_list)
+
+                    # Update next_room adjacency_list to point to current Room
+                    # for opposite direction
+                    self.adjacency_list[next_room.id][self.get_opposite_direction(selected_exit)] = current_room_id
+
+                    print("Adjacency List with Next Room: ", self.adjacency_list)
 
 
+                    # copy the current path
+                    new_path = list(current_path)
+                    
+                    # add the next_room to it
+                    new_path.append(next_room)
+                    
+                    # Push New Path to Stack
+                    stack.push(new_path)
+
+                    print("New Path: ", new_path)
+
+                    # Travel to Next Room
+                    player.travel(selected_exit)
+
+                    # Append direction to traversal_path array
+                    traversal_path.append(selected_exit)
+
+                    print("Loop Traversal Path: ", traversal_path)
+
+                # Else: Otherwise, backtrack... which would be the path array @ index -2
+                else:
+
+                    # copy the current path
+                    new_path = list(current_path)
+
+                    # Get previous room
+                    backtrack_room = new_path[-2]
+                    
+                    if backtrack_room is not None:
+
+                        print("Backtrack Room: ", backtrack_room)
+
+                        # add the previous room to path
+                        new_path.append(backtrack_room)
+                        
+                        # # Push New Path to Stack
+                        stack.push(new_path)
+
+                        print("New Path: ", new_path)
+
+                        # Travel to Next Room
+                        player.travel(self.get_opposite_direction(selected_exit))
+
+                        # Append direction to traversal_path array
+                        traversal_path.append(selected_exit)
+
+                        print("Loop Traversal Path: ", traversal_path)
+
+
+        # End of While Loop                
         print("Final Traversal Path: ", traversal_path)
 
 
@@ -218,20 +308,21 @@ test_1 = Graph()
 
 test_1.dft(player, 0)
 
-# TRAVERSAL TEST - DO NOT MODIFY
-# visited_rooms = set()
-# player.current_room = world.starting_room
-# visited_rooms.add(player.current_room)
 
-# for move in traversal_path:
-#     player.travel(move)
-#     visited_rooms.add(player.current_room)
+#TRAVERSAL TEST - DO NOT MODIFY
+visited_rooms = set()
+player.current_room = world.starting_room
+visited_rooms.add(player.current_room)
 
-# if len(visited_rooms) == len(room_graph):
-#     print(f"TESTS PASSED: {len(traversal_path)} moves, {len(visited_rooms)} rooms visited")
-# else:
-#     print("TESTS FAILED: INCOMPLETE TRAVERSAL")
-#     print(f"{len(room_graph) - len(visited_rooms)} unvisited rooms")
+for move in traversal_path:
+    player.travel(move)
+    visited_rooms.add(player.current_room)
+
+if len(visited_rooms) == len(room_graph):
+    print(f"TESTS PASSED: {len(traversal_path)} moves, {len(visited_rooms)} rooms visited")
+else:
+    print("TESTS FAILED: INCOMPLETE TRAVERSAL")
+    print(f"{len(room_graph) - len(visited_rooms)} unvisited rooms")
 
 
 
